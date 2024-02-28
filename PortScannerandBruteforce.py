@@ -1,73 +1,81 @@
-import socket
+import tkinter as tk
 import threading
-import unittest
-import requests
 import subprocess
 
-class PortScanner:
-    def __init__(self, target_ip, ports, timeout=1):
-        self.target_ip = target_ip
-        self.ports = ports
-        self.timeout = timeout
-        self.results = []
+class PortScannerApp:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Port Scanner and Brute Force Tool")
+        self.create_widgets()
 
-    def scan_port(self, port):
+    def create_widgets(self):
+        # Port Scanning Section
+        self.port_scan_frame = tk.LabelFrame(self.root, text="Port Scanning")
+        self.port_scan_frame.pack(padx=10, pady=10, fill="both", expand=True)
+
+        self.target_ip_label = tk.Label(self.port_scan_frame, text="Enter the target IP address:")
+        self.target_ip_label.pack()
+        self.target_ip_entry = tk.Entry(self.port_scan_frame)
+        self.target_ip_entry.pack()
+
+        self.scan_button = tk.Button(self.port_scan_frame, text="Scan Ports", command=self.start_port_scan)
+        self.scan_button.pack()
+
+        self.port_scan_output = tk.Text(self.port_scan_frame, height=10, width=50)
+        self.port_scan_output.pack()
+
+        # Brute Force Section
+        self.brute_force_frame = tk.LabelFrame(self.root, text="Brute Force")
+        self.brute_force_frame.pack(padx=10, pady=10, fill="both", expand=True)
+
+        self.target_url_label = tk.Label(self.brute_force_frame, text="Enter the target URL:")
+        self.target_url_label.pack()
+        self.target_url_entry = tk.Entry(self.brute_force_frame)
+        self.target_url_entry.pack()
+
+        self.brute_force_button = tk.Button(self.brute_force_frame, text="Start Brute Force", command=self.start_brute_force)
+        self.brute_force_button.pack()
+
+        self.brute_force_output = tk.Text(self.brute_force_frame, height=10, width=50)
+        self.brute_force_output.pack()
+
+    def start_port_scan(self):
+        target_ip = self.target_ip_entry.get()
+        self.port_scan_output.delete(1.0, tk.END)  # Clear previous output
+        self.port_scan_output.insert(tk.END, f"Scanning ports for {target_ip}...\n")
+
+        t = threading.Thread(target=self.run_nmap_scan, args=(target_ip,))
+        t.start()
+
+    def run_nmap_scan(self, target_ip):
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(self.timeout)
-            result = sock.connect_ex((self.target_ip, port))
-            if result == 0:
-                self.results.append(port)
-            sock.close()
+            result = subprocess.run(["nmap", "-A", target_ip], capture_output=True, text=True, timeout=300)
+            self.port_scan_output.insert(tk.END, result.stdout)
+        except subprocess.TimeoutExpired:
+            self.port_scan_output.insert(tk.END, "Port scanning timed out.\n")
         except Exception as e:
-            print(f"Error scanning port {port}: {e}")
+            self.port_scan_output.insert(tk.END, f"Error during port scanning: {e}\n")
 
-    def scan(self):
-        threads = []
-        for port in self.ports:
-            t = threading.Thread(target=self.scan_port, args=(port,))
-            threads.append(t)
-            t.start()
-        
-        for t in threads:
-            t.join()
-        
-        return self.results
+    def start_brute_force(self):
+        target_url = self.target_url_entry.get()
+        self.brute_force_output.delete(1.0, tk.END)  # Clear previous output
+        self.brute_force_output.insert(tk.END, f"Brute forcing {target_url}...\n")
+
+        t = threading.Thread(target=self.run_gobuster, args=(target_url,))
+        t.start()
 
     def run_gobuster(self, target_url):
-        results = []
-        wordlist = "/usr/share/wordlists/dirb/common.txt"  # Default wordlist path
-        results.append(f"Running Gobuster on {target_url}...")
         try:
-            result = subprocess.run(["gobuster", "dir", "-u", target_url, "-w", wordlist], capture_output=True, text=True)
-            if result.returncode == 0:
-                results.extend(result.stdout.splitlines())
-            else:
-                results.append(result.stderr)
-        except FileNotFoundError:
-            results.append("Gobuster not found. Please make sure it's installed.")
+            result = subprocess.run(["gobuster", "dir", "-u", target_url, "-w", "/usr/share/wordlists/dirb/common.txt", "-t", "50", "-q"], capture_output=True, text=True, timeout=300)
+            self.brute_force_output.insert(tk.END, result.stdout)
+        except subprocess.TimeoutExpired:
+            self.brute_force_output.insert(tk.END, "Brute forcing timed out.\n")
         except Exception as e:
-            results.append(f"Error running Gobuster: {e}")
+            self.brute_force_output.insert(tk.END, f"Error during brute force: {e}\n")
 
-        return results
-
-class TestPortScanner(unittest.TestCase):
-    def test_scan(self):
-        target_ip = input("Enter the target IP address: ")
-        brute_force_option = input("Do you want to perform brute force? (yes/no): ").lower()
-        scanner = PortScanner(target_ip, [20, 21, 22, 23, 80, 443, 8080])
-        open_ports = scanner.scan()
-        print("Open Ports:", open_ports)
-        response = requests.get(f"http://{target_ip}/")
-        self.assertEqual(response.status_code, 200)
-
-        if brute_force_option == "yes":
-            target_url = f"http://{target_ip}/"
-            brute_forcer = PortScanner(target_ip, [80])  # Assuming only HTTP port for directory brute forcing
-            brute_force_results = brute_forcer.run_gobuster(target_url)
-            print("\nBrute Force Results:")
-            for result in brute_force_results:
-                print(result)
+    def run(self):
+        self.root.mainloop()
 
 if __name__ == "__main__":
-    unittest.main()
+    app = PortScannerApp()
+    app.run()
