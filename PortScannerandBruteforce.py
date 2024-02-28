@@ -66,7 +66,7 @@ class PortScannerApp:
 
     def run_gobuster(self, target_url):
         try:
-            result = subprocess.run(["gobuster", "dir", "-u", target_url, "-w", "/usr/share/wordlists/dirb/common.txt", "-t", "50", "-q"], capture_output=True, text=True, timeout=300)
+            result = subprocess.run(["gobuster", "dir", "-u", target_url, "-w", "/usr/share/wordlists/dirb/common.txt"], capture_output=True, text=True, timeout=300)
             self.brute_force_output.insert(tk.END, result.stdout)
         except subprocess.TimeoutExpired:
             self.brute_force_output.insert(tk.END, "Brute forcing timed out.\n")
